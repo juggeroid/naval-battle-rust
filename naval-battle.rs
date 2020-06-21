@@ -1,10 +1,7 @@
-
-
 use itertools::Itertools;
-use rand::rngs::ThreadRng;
-use rand::Rng;
-use std::thread::sleep;
-use std::time::{Duration, Instant};
+use rand::rngs::SmallRng;
+use rand::seq::SliceRandom;
+use rand::{Rng, SeedableRng};
 
 const FIELD_SIZE: isize = 10;
 #[rustfmt::skip]
@@ -18,7 +15,7 @@ enum CellType {
 }
 
 struct Field {
-    field: [CellType; 100],
+    field: [CellType; (FIELD_SIZE * FIELD_SIZE) as usize],
 }
 
 impl std::fmt::Display for Field {
@@ -26,8 +23,8 @@ impl std::fmt::Display for Field {
         Ok(for (index, element) in self.field.iter().enumerate() {
             #[rustfmt::skip]
             let char_repr = match element {
-                CellType::EMPTY       => ' ',
-                CellType::UNAVAILABLE => '.',
+                CellType::EMPTY       => '.',
+                CellType::UNAVAILABLE => 'o',
                 CellType::OCCUPIED    => 'X',
             };
             if index % FIELD_SIZE as usize == 0 {
@@ -46,24 +43,26 @@ fn is_valid_formation(
     dy: isize,
     ship_size: usize,
 ) -> bool {
-    /* I. Construct a bounding box for the placed ship. */
+    // I. Construct a bounding box for the placed ship.
     let bounds = 0..FIELD_SIZE;
     for ship_size in 0..ship_size {
         let x = x + (dx * ship_size as isize);
         let y = y + (dy * ship_size as isize);
+        // Move in every box direction.
         for direction in DIRECTIONS.iter() {
-            // Indices cannot be negative.
+            // Indices cannot be negative or >= FIELD_SIZE.
             if !bounds.contains(&(x + direction.0)) || !bounds.contains(&(y + direction.1)) {
                 continue;
             }
             let bounding_box_cell =
                 field.field[((x + direction.0) + ((y + direction.1) * FIELD_SIZE)) as usize];
+            // If there's a ship within a bounding box, halt the loop -- we cannot place the ship here.
             if bounding_box_cell == CellType::OCCUPIED {
                 return false;
             }
         }
     }
-    /* II. Check whether the cells that are being used to place the ship are occupied. */
+    // II. Check whether the cells that are being used to place the ship onto are occupied.
     for _ in 0..ship_size {
         if !bounds.contains(&x) || !bounds.contains(&y) {
             return false;
@@ -90,11 +89,13 @@ fn get_available_cells(
         .collect()
 }
 
-fn emplace_ships(field: &mut Field, ship_size: usize, rng: &mut ThreadRng) {
+fn emplace_ships(field: &mut Field, ship_size: usize, rng: &mut SmallRng) {
+    // Flip a coin to determine an alignment (horizontal / vertical).
     let (dx, dy) = if rng.gen() { (1, 0) } else { (0, 1) };
+    // Get the vector of appropriate cells.
     let cell_coordinates = get_available_cells(&field, dx, dy, ship_size);
-    let chosen_cell = cell_coordinates[rng.gen_range(0, cell_coordinates.len())];
-    let (mut x, mut y) = (chosen_cell.0, chosen_cell.1);
+    let (mut x, mut y) = cell_coordinates.choose(rng).unwrap();
+    // Place a ship!
     for _ in 0..ship_size {
         field.field[(x + y * FIELD_SIZE) as usize] = CellType::OCCUPIED;
         x += dx;
@@ -105,17 +106,15 @@ fn emplace_ships(field: &mut Field, ship_size: usize, rng: &mut ThreadRng) {
 impl Field {
     fn generate() -> Self {
         /* Generating the field. */
-        let mut f = Field { field: [CellType::EMPTY; 100] };
-        let mut rng: ThreadRng = rand::thread_rng();
-        for ship_size in (1..=4).rev().flat_map(|c| std::iter::repeat(c).take(5 - c)) {
-            emplace_ships(&mut f, ship_size, &mut rng);
+        let mut f = Field { field: [CellType::EMPTY; (FIELD_SIZE * FIELD_SIZE) as usize] };
+        let mut rng: SmallRng = SmallRng::from_entropy();
+        for ship_size in [4, 3, 3, 2, 2, 2, 1, 1, 1, 1].iter() {
+            emplace_ships(&mut f, *ship_size, &mut rng);
         }
         f
     }
 }
 fn main() {
-    let now = Instant::now();
     let field = Field::generate();
-    let new = Instant::now();
-    println!("{:?}", new.duration_since(now));
+    println!("{}", field);
 }

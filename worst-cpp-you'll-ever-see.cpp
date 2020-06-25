@@ -68,21 +68,20 @@ bool is_valid_formation(
 	return true;
 }
 
-std::vector<Coordinates> get_available_cells(const Field& field, std::int32_t dx, std::int32_t dy, std::size_t ship_size) noexcept {
-	std::vector<Coordinates> cells; cells.reserve(FIELD_SIZE * FIELD_SIZE);
+void get_available_cells(const Field& field, std::int32_t dx, std::int32_t dy, std::size_t ship_size, std::vector<Coordinates>& buffer) noexcept {
+	buffer.clear();
 	for (std::size_t x = 0; x < FIELD_SIZE; ++x) {
 		for (std::size_t y = 0; y < FIELD_SIZE; ++y) {
 			if (is_valid_formation(field, x, y, dx, dy, ship_size))
-				cells.push_back({ x, y });
+				buffer.push_back({x, y});
 		}
 	}
-	return cells;
 }
 
-auto emplace_ships(Field& field, std::size_t ship_size) noexcept {
+auto emplace_ships(Field& field, std::size_t ship_size, std::vector<Coordinates>& buffer) noexcept {
 
 	const auto get_alignment = [&] {
-		return bool_distribution(generator) ? Coordinates{ 1, 0 } : Coordinates{ 0, 1 };
+		return bool_distribution(generator) ? Coordinates {1, 0}: Coordinates {0, 1};
 	};
 
 	const auto pick_random = [&](auto begin, auto end) noexcept {
@@ -92,8 +91,8 @@ auto emplace_ships(Field& field, std::size_t ship_size) noexcept {
 	};
 
 	auto [dx, dy] = get_alignment();
-	const auto& cells = get_available_cells(field, dx, dy, ship_size);
-	auto [x, y] = *pick_random(std::begin(cells), std::end(cells));
+	get_available_cells(field, dx, dy, ship_size, buffer);
+	auto [x, y] = *pick_random(std::begin(buffer), std::end(buffer));
 	for (std::size_t iteration = 0; iteration < ship_size; ++iteration) {
 		field.field[x + (y * FIELD_SIZE)] = OCCUPIED;
 		x += dx; y += dy;
@@ -103,10 +102,13 @@ auto emplace_ships(Field& field, std::size_t ship_size) noexcept {
 int main() {
 	auto start = std::chrono::high_resolution_clock::now();
 	Field field;
+	std::vector<Coordinates> buffer;
+	buffer.resize(FIELD_SIZE * FIELD_SIZE);
 	for (const auto& ship_size : { 4, 3, 3, 2, 2, 2, 1, 1, 1, 1 }) {
-		emplace_ships(field, ship_size);
+		emplace_ships(field, ship_size, buffer);
 	}
 	auto elapsed = std::chrono::high_resolution_clock::now() - start;
 	long long microseconds = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
 	std::cout << microseconds << " ms.\n";
+	std::cout << field;
 }

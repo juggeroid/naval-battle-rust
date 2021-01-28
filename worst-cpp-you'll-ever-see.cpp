@@ -91,19 +91,19 @@ is_valid_formation(const Field&       field,
     const std::int32_t ny = y + (dy * iteration);
     for (const auto& direction: DIRECTIONS) {
       [[unlikely]] if (!within_bounds(nx, ny, direction))
-      continue;
+        continue;
       const auto& bounding_box_cell = field.field[(nx + direction.first) + ((ny + direction.second) * FIELD_SIZE)];
       if (CellType::OCCUPIED == bounding_box_cell) 
-      return false;
+        return false;
     }
   }
   
   for (std::size_t iteration = 0; iteration < ship_size; ++iteration) {
     [[unlikely]] if (!within_bounds(x, y))
-    return false;
+      return false;
     const auto& current_cell = field.field[(y * FIELD_SIZE) + x];
     if (CellType::OCCUPIED == current_cell || CellType::UNAVAILABLE == current_cell)
-    return false;
+      return false;
     x += dx;
     y += dy;
   }
@@ -126,7 +126,7 @@ get_available_cells(const Field&       field,
   }
 }
 
-auto emplace_ships(Field& field, 
+auto emplace_ships(Field&            field, 
                    const std::size_t ship_size,
                    boost::container::static_vector<Coordinates, FIELD_SIZE * FIELD_SIZE>& buffer) noexcept
 {

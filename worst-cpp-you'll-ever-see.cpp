@@ -30,7 +30,7 @@ namespace {
       UNAVAILABLE,
       OCCUPIED
     };
-    using Coordinates = std::pair<std::int32_t, std::int32_t>;
+	using Coordinates = struct { std::int32_t x; std::int32_t y; };
     using Directions = std::array<Coordinates, 9>;
 
     constexpr auto DIRECTIONS = Directions {{{  0,  0 },
@@ -78,12 +78,13 @@ is_valid_formation(const Field&       field,
                    const std::size_t  ship_size) noexcept
 {
 
-  const auto within_bounds = [&](const auto x, 
-                                 const auto y, 
-                                 const std::pair<std::int32_t, std::int32_t>& direction = std::pair {0, 0}) noexcept {
-    return ((x + direction.first  < FIELD_SIZE) && (x + direction.first  >= 0))
+  static const auto within_bounds = [&](const auto x, 
+                                        const auto y, 
+                                        Coordinates direction = Coordinates {0, 0})
+  noexcept {
+    return ((x + direction.x  < FIELD_SIZE) && (x + direction.x >= 0))
            && 
-           ((y + direction.second < FIELD_SIZE) && (y + direction.second >= 0));
+           ((y + direction.y  < FIELD_SIZE) && (y + direction.y >= 0));
   };
 
   for (std::size_t iteration = 0; iteration < ship_size; ++iteration) {
@@ -92,7 +93,7 @@ is_valid_formation(const Field&       field,
     for (const auto& direction: DIRECTIONS) {
       [[unlikely]] if (!within_bounds(nx, ny, direction))
         continue;
-      const auto& bounding_box_cell = field.field[(nx + direction.first) + ((ny + direction.second) * FIELD_SIZE)];
+      const auto& bounding_box_cell = field.field[(nx + direction.x) + ((ny + direction.y) * FIELD_SIZE)];
       if (CellType::OCCUPIED == bounding_box_cell) 
         return false;
     }
@@ -130,7 +131,7 @@ auto emplace_ships(Field&            field,
                    const std::size_t ship_size,
                    boost::container::static_vector<Coordinates, FIELD_SIZE * FIELD_SIZE>& buffer) noexcept
 {
-  const auto get_alignment = [&] {
+  static const auto get_alignment = [&] {
     return bool_generator(generator) 
            ? Coordinates {1, 0}
            : Coordinates {0, 1};

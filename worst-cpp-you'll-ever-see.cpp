@@ -30,7 +30,7 @@ namespace {
       UNAVAILABLE,
       OCCUPIED
     };
-	using Coordinates = struct { std::int32_t x; std::int32_t y; };
+    using Coordinates = struct { std::int32_t x; std::int32_t y; };
     using Directions = std::array<Coordinates, 9>;
 
     constexpr auto DIRECTIONS = Directions {{{  0,  0 },

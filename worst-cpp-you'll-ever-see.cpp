@@ -43,7 +43,7 @@ namespace {
                                              { -1, -1 },
                                              {  1,  1 }}};
 
-    boost::taus88 generator {std::random_device{}()};
+    boost::taus88 generator {std::random_device {}()};
     randomizer_with_sentinel_shift<std::uint64_t> bool_generator;
 }
 
@@ -78,12 +78,11 @@ is_valid_formation(const Field&       field,
                    const std::size_t  ship_size) noexcept
 {
 
-  static const auto within_bounds = [&](const auto x, 
-                                        const auto y, 
-                                        Coordinates direction = Coordinates {0, 0})
+  static const auto within_bounds = [](const auto x, 
+                                       const auto y, 
+                                       Coordinates direction = Coordinates {0, 0})
   noexcept {
-    return ((x + direction.x  < FIELD_SIZE) && (x + direction.x >= 0))
-           && 
+    return ((x + direction.x  < FIELD_SIZE) && (x + direction.x >= 0)) && 
            ((y + direction.y  < FIELD_SIZE) && (y + direction.y >= 0));
   };
 
@@ -91,7 +90,7 @@ is_valid_formation(const Field&       field,
     const std::int32_t nx = x + (dx * iteration);
     const std::int32_t ny = y + (dy * iteration);
     for (const auto& direction: DIRECTIONS) {
-      [[unlikely]] if (!within_bounds(nx, ny, direction))
+      [[likely]] if (!within_bounds(nx, ny, direction))
         continue;
       const auto& bounding_box_cell = field.field[(nx + direction.x) + ((ny + direction.y) * FIELD_SIZE)];
       if (CellType::OCCUPIED == bounding_box_cell) 
@@ -100,10 +99,9 @@ is_valid_formation(const Field&       field,
   }
   
   for (std::size_t iteration = 0; iteration < ship_size; ++iteration) {
-    [[unlikely]] if (!within_bounds(x, y))
+    if (!within_bounds(x, y))
       return false;
-    const auto& current_cell = field.field[(y * FIELD_SIZE) + x];
-    if (CellType::OCCUPIED == current_cell || CellType::UNAVAILABLE == current_cell)
+    if (CellType::EMPTY != field.field[(y * FIELD_SIZE) + x])
       return false;
     x += dx;
     y += dy;
@@ -111,27 +109,29 @@ is_valid_formation(const Field&       field,
   return true;
 }
 
+template <typename Buffer = boost::container::static_vector<Coordinates, FIELD_SIZE * FIELD_SIZE>>
 void
 get_available_cells(const Field&       field, 
                     const std::int32_t dx, 
                     const std::int32_t dy,
                     const std::size_t  ship_size,
-                    boost::container::static_vector<Coordinates, FIELD_SIZE * FIELD_SIZE>& buffer) noexcept
+                    Buffer& buffer) noexcept
 {
   buffer.clear();
-  for (std::size_t x = 0; x < FIELD_SIZE; ++x) {
-    for (std::size_t y = 0; y < FIELD_SIZE; ++y) {
+  for (auto x = 0; x < FIELD_SIZE; ++x) {
+    for (auto y = 0; y < FIELD_SIZE; ++y) {
       if (is_valid_formation(field, x, y, dx, dy, ship_size))
         buffer.emplace_back(x, y);
     }
   }
 }
 
+template <typename Buffer = boost::container::static_vector<Coordinates, FIELD_SIZE * FIELD_SIZE>>
 auto emplace_ships(Field&            field, 
                    const std::size_t ship_size,
-                   boost::container::static_vector<Coordinates, FIELD_SIZE * FIELD_SIZE>& buffer) noexcept
+                   Buffer&           buffer) noexcept
 {
-  static const auto get_alignment = [&] {
+  static const auto get_alignment = [] {
     return bool_generator(generator) 
            ? Coordinates {1, 0}
            : Coordinates {0, 1};
@@ -141,7 +141,7 @@ auto emplace_ships(Field&            field,
   get_available_cells(field, dx, dy, ship_size, buffer);
   auto [x, y] = buffer[generator() % buffer.size()];
   for (std::size_t iteration = 0; iteration < ship_size; ++iteration) {
-    field.field[x + (y * FIELD_SIZE)] = CellType::OCCUPIED;
+    field.field[x + (FIELD_SIZE * y)] = CellType::OCCUPIED;
     x += dx;
     y += dy;
   }
